@@ -38,6 +38,19 @@
       } catch (_) {}
     },
 
+    /**
+     * Forget only the token, keeping owner/repo/branch/root, so a token that
+     * expired or was revoked costs one field to fix rather than a full re-setup.
+     */
+    clearToken() {
+      this.cfg.token = '';
+      try {
+        const inLocal = localStorage.getItem(CFG_KEY) !== null;
+        const payload = JSON.stringify(this.cfg);
+        (inLocal ? localStorage : sessionStorage).setItem(CFG_KEY, payload);
+      } catch (_) {}
+    },
+
     clearConfig() {
       try { localStorage.removeItem(CFG_KEY); sessionStorage.removeItem(CFG_KEY); } catch (_) {}
       this.cfg = { owner: '', repo: '', branch: 'main', root: 'vault', token: '' };

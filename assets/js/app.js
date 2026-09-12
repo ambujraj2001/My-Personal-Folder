@@ -243,8 +243,8 @@
     } catch (err) {
       failed(err);
       if (err.status === 401) {
-        GH.clearConfig();
-        showSetup('Your token was rejected. Please connect again.');
+        GH.clearToken();
+        showSetup('That token expired or was revoked — paste a new one. Everything else is remembered.');
       }
     }
   }

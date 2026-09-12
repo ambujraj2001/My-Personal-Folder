@@ -7,8 +7,13 @@
 <meta name="theme-color" content="#0b0d12">
 <title>My Personal Folder</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
-<link rel="stylesheet" href="assets/css/style.css?v=2">
-<link rel="stylesheet" href="assets/css/markdown.css?v=2">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Folder">
+<link rel="stylesheet" href="assets/css/style.css?v=3">
+<link rel="stylesheet" href="assets/css/markdown.css?v=3">
 </head>
 <body>
 
@@ -114,12 +119,19 @@
 
       <details class="help">
         <summary>How do I create a token?</summary>
+        <p><b>Scoped to one repo</b> — expires after a year at most:</p>
         <ol>
           <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Fine-grained tokens → New token <svg class="i"><use href="#i-ext"/></svg></a></li>
           <li><b>Repository access</b> → <i>Only select repositories</i> → pick this repo.</li>
           <li><b>Permissions → Repository</b> → <i>Contents</i> → <b>Read and write</b>.</li>
-          <li>Generate, copy, paste it above. It never leaves your browser — every request goes straight from this page to <code>api.github.com</code>.</li>
         </ol>
+        <p><b>Never expires</b> — paste once per device and forget it, but it can reach all your repos:</p>
+        <ol>
+          <li>Open <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">Tokens (classic) → New token <svg class="i"><use href="#i-ext"/></svg></a></li>
+          <li><b>Expiration</b> → <i>No expiration</i>. <b>Scopes</b> → tick <code>repo</code>.</li>
+        </ol>
+        <p>Either way it never leaves your browser — every request goes straight from
+        this page to <code>api.github.com</code>, and it stays signed in until you sign out.</p>
       </details>
     </form>
   </div>
@@ -296,9 +308,9 @@ Paste or write markdown here…"></textarea>
 <script src="assets/vendor/marked.min.js"></script>
 <script src="assets/vendor/purify.min.js"></script>
 <script src="assets/vendor/highlight.min.js"></script>
-<script src="assets/js/util.js?v=2"></script>
-<script src="assets/js/github.js?v=2"></script>
-<script src="assets/js/markdown.js?v=2"></script>
-<script src="assets/js/app.js?v=2"></script>
+<script src="assets/js/util.js?v=3"></script>
+<script src="assets/js/github.js?v=3"></script>
+<script src="assets/js/markdown.js?v=3"></script>
+<script src="assets/js/app.js?v=3"></script>
 </body>
 </html>

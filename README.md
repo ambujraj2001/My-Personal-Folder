@@ -65,6 +65,27 @@ The token is kept in your browser's
 local storage and is sent only to `api.github.com`. Untick "keep me signed in"
 on a shared machine and it lives for that tab only.
 
+## Staying signed in
+
+You enter the token **once per device**, not once per visit. It is kept in that
+browser's local storage with no expiry, and the app only forgets it if you sign
+out or GitHub rejects it. If the token does expire, only that one field is
+cleared — the repo, branch and vault folder are remembered.
+
+To never retype it, create a **classic** token with *No expiration* and the
+`repo` scope. Fine-grained tokens are tighter (one repo only) but expire within
+a year, so you will re-paste roughly annually.
+
+There is no way to ship the token with the app itself. GitHub Pages serves static
+files with no server and no environment variables, so anything "injected at build
+time" is downloaded by every visitor and readable via view-source — and a
+password check running in the browser can simply be skipped. Keeping a secret
+requires a server; see [Privacy](#privacy) for the hosting options that have one.
+
+**On iPhone/iPad, add it to your Home Screen.** Safari clears local storage for
+sites you have not opened in 7 days, which would log you out; installed web apps
+are exempt. Share → Add to Home Screen.
+
 ## Keyboard
 
 | Shortcut | Action |
