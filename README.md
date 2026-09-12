@@ -78,6 +78,13 @@ on a shared machine and it lives for that tab only.
 | `/` | Focus the sidebar filter |
 | `Esc` | Close whatever is open |
 
+## Updating the app
+
+Browsers cache `assets/css/*` and `assets/js/*`, so the stylesheet and script
+tags in `index.html` carry a `?v=N` marker. **Bump that number whenever you edit
+the app source**, otherwise a redeploy can keep serving the old files for a
+while. Editing notes never needs it — only app code.
+
 ## Layout
 
 ```
