@@ -12,6 +12,29 @@
   const WARN_UPLOAD = 8 * 1024 * 1024;
   const ASSET_DIR = 'assets';            // where pasted/dropped images land, inside the vault
 
+  // Used when nothing is saved and the URL tells us nothing (e.g. localhost).
+  // Edit these if you fork this app for a different vault.
+  const DEFAULT_TARGET = { owner: 'ambujraj2001', repo: 'My-Personal-Folder', branch: 'main', root: 'vault' };
+
+  /** Work out the repo from a github.io URL, so the app only has to ask for a token. */
+  function detectTarget() {
+    const m = location.hostname.match(/^([A-Za-z0-9-]+)\.github\.io$/i);
+    if (!m) return null;                                  // custom domain or local
+    const seg = location.pathname.split('/').filter(Boolean)[0];
+    return { owner: m[1], repo: seg || (m[1] + '.github.io') };
+  }
+
+  /** Saved config wins, then the URL, then the baked-in default. */
+  function setupTarget() {
+    const det = detectTarget();
+    return {
+      owner: GH.cfg.owner || (det && det.owner) || DEFAULT_TARGET.owner,
+      repo: GH.cfg.repo || (det && det.repo) || DEFAULT_TARGET.repo,
+      branch: GH.cfg.branch || DEFAULT_TARGET.branch,
+      root: GH.cfg.root || DEFAULT_TARGET.root
+    };
+  }
+
   const state = {
     entries: [],
     byPath: new Map(),
@@ -63,16 +86,25 @@
   function showSetup(message, kind) {
     $('#app').hidden = true;
     $('#setup').hidden = false;
-    $('#cfg-owner').value = GH.cfg.owner || '';
-    $('#cfg-repo').value = GH.cfg.repo || '';
-    $('#cfg-branch').value = GH.cfg.branch || 'main';
-    $('#cfg-root').value = GH.cfg.root || 'vault';
+    const t = setupTarget();
+    $('#cfg-owner').value = t.owner;
+    $('#cfg-repo').value = t.repo;
+    $('#cfg-branch').value = t.branch;
+    $('#cfg-root').value = t.root;
     $('#cfg-token').value = '';
+    updateTargetLine();
     const err = $('#setup-error');
     err.className = 'alert ' + (kind || 'error');
     err.hidden = !message;
     if (message) err.textContent = message;
-    setTimeout(() => ($('#cfg-owner').value ? $('#cfg-token') : $('#cfg-owner')).focus(), 60);
+    setTimeout(() => $('#cfg-token').focus(), 60);
+  }
+
+  function updateTargetLine() {
+    const owner = $('#cfg-owner').value.trim();
+    const repo = $('#cfg-repo').value.trim();
+    $('#target-repo').textContent = owner && repo ? owner + '/' + repo : 'Choose a repository';
+    $('#target-meta').textContent = $('#cfg-branch').value.trim() + ' · ' + $('#cfg-root').value.trim() + '/';
   }
 
   function wireSetup() {
@@ -81,6 +113,15 @@
       i.type = i.type === 'password' ? 'text' : 'password';
       i.focus();
     });
+
+    $('#toggle-advanced').addEventListener('click', () => {
+      const box = $('#advanced');
+      box.hidden = !box.hidden;
+      $('#toggle-advanced').textContent = box.hidden ? 'Change' : 'Done';
+      if (!box.hidden) $('#cfg-owner').focus();
+    });
+    ['#cfg-owner', '#cfg-repo', '#cfg-branch', '#cfg-root'].forEach((sel) =>
+      $(sel).addEventListener('input', updateTargetLine));
 
     $('#setup-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -129,6 +170,10 @@
         Object.assign(GH.cfg, prev);
         err.textContent = ex.message;
         err.hidden = false;
+        if (ex.status === 404) {          // wrong repo — show the fields so it can be fixed
+          $('#advanced').hidden = false;
+          $('#toggle-advanced').textContent = 'Done';
+        }
       } finally {
         btn.disabled = false;
         btn.innerHTML = '';

@@ -55,7 +55,13 @@ Either:
 
 ### 3. Connect
 
-Fill in owner, repo, branch and the token. The token is kept in your browser's
+When the app is served from its own GitHub Pages URL it works out the owner and
+repository from that URL, so the only thing it asks for is the token. Use
+**Change** on the connect screen to point it at a different repo, branch or vault
+folder (running it locally, it falls back to `DEFAULT_TARGET` at the top of
+[assets/js/app.js](assets/js/app.js)).
+
+The token is kept in your browser's
 local storage and is sent only to `api.github.com`. Untick "keep me signed in"
 on a shared machine and it lives for that tab only.
 

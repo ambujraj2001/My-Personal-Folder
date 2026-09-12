@@ -61,31 +61,40 @@
     </div>
 
     <form id="setup-form" class="setup-form" autocomplete="off">
-      <div class="field-row">
-        <label class="field">
-          <span>Owner / user</span>
-          <input id="cfg-owner" type="text" placeholder="ambujraj2001" spellcheck="false" required>
-        </label>
-        <label class="field">
-          <span>Repository</span>
-          <input id="cfg-repo" type="text" placeholder="My-Personal-Folder" spellcheck="false" required>
-        </label>
+      <div class="target" id="target-line">
+        <svg class="i"><use href="#i-github"/></svg>
+        <span class="target-repo" id="target-repo">—</span>
+        <span class="target-meta" id="target-meta"></span>
+        <button type="button" class="ghost tiny" id="toggle-advanced">Change</button>
       </div>
-      <div class="field-row">
-        <label class="field">
-          <span>Branch</span>
-          <input id="cfg-branch" type="text" value="main" spellcheck="false" required>
-        </label>
-        <label class="field">
-          <span>Vault folder <em class="hint">(data root)</em></span>
-          <input id="cfg-root" type="text" value="vault" spellcheck="false" required>
-        </label>
+
+      <div id="advanced" class="advanced" hidden>
+        <div class="field-row">
+          <label class="field">
+            <span>Owner / user</span>
+            <input id="cfg-owner" type="text" placeholder="ambujraj2001" spellcheck="false" required>
+          </label>
+          <label class="field">
+            <span>Repository</span>
+            <input id="cfg-repo" type="text" placeholder="My-Personal-Folder" spellcheck="false" required>
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Branch</span>
+            <input id="cfg-branch" type="text" value="main" spellcheck="false" required>
+          </label>
+          <label class="field">
+            <span>Vault folder <em class="hint">(data root)</em></span>
+            <input id="cfg-root" type="text" value="vault" spellcheck="false" required>
+          </label>
+        </div>
       </div>
       <label class="field">
         <span>GitHub token <em class="hint">fine-grained &middot; Contents: Read &amp; write</em></span>
         <div class="input-wrap">
           <svg class="i input-icon"><use href="#i-key"/></svg>
-          <input id="cfg-token" type="password" placeholder="github_pat_… or ghp_…" spellcheck="false" required>
+          <input id="cfg-token" type="password" placeholder="github_pat_… or ghp_…" spellcheck="false" autofocus required>
           <button type="button" class="ghost tiny" id="toggle-token" title="Show/hide">
             <svg class="i"><use href="#i-eye"/></svg>
           </button>
