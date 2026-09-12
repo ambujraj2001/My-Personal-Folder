@@ -48,9 +48,10 @@ Either:
   local server is the dependable option — some browsers restrict storage on
   `file://`.
 - **GitHub Pages** — Settings → Pages → deploy from `main` / root, then open
-  `https://<you>.github.io/My-Personal-Folder/`.
-  *Pages for a **private** repo needs a paid GitHub plan. On a free plan either
-  make the repo public (your notes become public too) or just use it locally.*
+  `https://<you>.github.io/My-Personal-Folder/`. Not enabled by default.
+  Read [Privacy](#privacy) first: Pages publishes `vault/` as static files, so a
+  public Pages site makes every note public. Publishing a *private* repo to Pages
+  (which keeps the site behind a GitHub login) requires a paid plan.
 
 ### 3. Connect
 
@@ -104,9 +105,27 @@ Files are capped at 50 MB (the practical ceiling for the GitHub blob API).
 ## Privacy
 
 The token never leaves your browser — there is no backend to send it to. All
-requests go directly from the page to `api.github.com`. If you host this on
-GitHub Pages, anyone visiting the page still needs their own token with access
-to the repo before they see anything.
+requests go directly from the page to `api.github.com`, and the app shows
+nothing until someone supplies a token that can read the repo.
+
+**That guarantee covers the app, not the hosting.** GitHub Pages publishes every
+file in the repository as a static file, so on a *public* Pages site your notes
+are readable directly at their own URLs — `…/vault/Welcome.md` — with no token
+involved. The token gate protects the API, not static hosting.
+
+So pick one:
+
+| Setup | Notes are |
+| --- | --- |
+| Run it locally (no Pages) | private |
+| Private repo + Pages set to **private** visibility (paid plan) | private — viewers must sign in with repo access |
+| Public repo + Pages | **public — anyone can read every note** |
+| App in a public repo, `vault/` in a separate **private** repo | private — point the app at the private repo at connect time |
+
+That last row is the one to use if you want a shareable URL and private notes:
+this repo holds only the app, and you connect it to a second private repo that
+holds the vault. Nothing in the code changes — owner and repo are just fields on
+the connect screen.
 
 ## Licence
 
