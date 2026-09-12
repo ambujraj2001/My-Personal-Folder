@@ -107,10 +107,24 @@
         if (!repo.permissions || repo.permissions.push === false) {
           throw new Error('This token can read ' + GH.repoPath + ' but not write to it. Give it Contents: Read and write.');
         }
-        if (!cfg.branch) GH.cfg.branch = repo.default_branch;
+        // A repo on 'master' (or any other default) shouldn't look like an empty
+        // vault just because the branch field still said 'main'.
+        let swapped = null;
+        try {
+          await GH.request('/repos/' + GH.repoPath + '/branches/' + encodeURIComponent(GH.cfg.branch));
+        } catch (branchErr) {
+          if (branchErr.status !== 404 || !repo.default_branch) throw branchErr;
+          if (repo.default_branch !== GH.cfg.branch) {
+            swapped = GH.cfg.branch;
+            GH.cfg.branch = repo.default_branch;
+          }
+        }
         GH.saveConfig(GH.cfg, remember);
         $('#setup').hidden = true;
         await connect();
+        if (swapped) {
+          toast('No branch called “' + swapped + '” — using “' + GH.cfg.branch + '” instead.', 'info', { duration: 7000 });
+        }
       } catch (ex) {
         Object.assign(GH.cfg, prev);
         err.textContent = ex.message;

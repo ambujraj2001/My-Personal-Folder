@@ -37,8 +37,16 @@ GitHub needs to let the page write to this repo on your behalf.
 
 Either:
 
-- **Locally** — clone the repo and open `index.html` in your browser. It works
-  straight from `file://`; no server needed.
+- **Locally** — clone the repo and serve the folder:
+
+  ```bash
+  python3 -m http.server 8787
+  ```
+
+  then open <http://localhost:8787>. Opening `index.html` straight from disk
+  generally works too (everything is vendored, there is nothing to build), but a
+  local server is the dependable option — some browsers restrict storage on
+  `file://`.
 - **GitHub Pages** — Settings → Pages → deploy from `main` / root, then open
   `https://<you>.github.io/My-Personal-Folder/`.
   *Pages for a **private** repo needs a paid GitHub plan. On a free plan either
