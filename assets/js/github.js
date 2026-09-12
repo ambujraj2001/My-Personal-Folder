@@ -16,6 +16,10 @@
     cfg: { owner: '', repo: '', branch: 'main', root: 'vault', token: '' },
     rate: null,
 
+    /** Requests currently in flight, and a hook the UI uses to show progress. */
+    inFlight: 0,
+    onActivity: null,
+
     /* ------------------------------------------------------------ config */
     loadConfig() {
       let raw = null;
@@ -75,6 +79,8 @@
       if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
 
       let res;
+      this.inFlight++;
+      if (this.onActivity) this.onActivity(this.inFlight);
       try {
         res = await fetch(url, {
           method: opts.method || 'GET',
@@ -84,6 +90,9 @@
         });
       } catch (netErr) {
         throw ghError(0, 'Network error — is this device online?', netErr);
+      } finally {
+        this.inFlight = Math.max(0, this.inFlight - 1);
+        if (this.onActivity) this.onActivity(this.inFlight);
       }
 
       const limit = res.headers.get('x-ratelimit-limit');
@@ -200,7 +209,7 @@
      * changes: [{path, contentB64}] to write, [{path, delete:true}] to remove,
      *          [{path, sha}] to point at an existing blob (used by moves).
      */
-    async commitBatch(changes, message) {
+    async commitBatch(changes, message, onProgress) {
       const repo = this.repoPath;
       const branch = this.cfg.branch;
 
@@ -209,6 +218,8 @@
       const headCommit = await this.request('/repos/' + repo + '/git/commits/' + headSha);
 
       const tree = [];
+      const uploads = changes.filter((c) => !c.delete && !c.sha).length;
+      let uploaded = 0;
       for (const ch of changes) {
         if (ch.delete) {
           tree.push({ path: ch.path, mode: '100644', type: 'blob', sha: null });
@@ -220,6 +231,8 @@
             body: { content: ch.contentB64, encoding: 'base64' }
           });
           tree.push({ path: ch.path, mode: '100644', type: 'blob', sha: blob.sha });
+          uploaded++;
+          if (onProgress) onProgress(uploaded, uploads);
         }
       }
 

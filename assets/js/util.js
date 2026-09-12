@@ -192,7 +192,7 @@
     if (!root) return;
     const ic = kind === 'err' ? 'alert' : kind === 'ok' ? 'check' : 'info';
     const node = el('div', { class: 'toast ' + (kind || 'info') }, [
-      icon(ic),
+      opts.spinner ? el('span', { class: 'spin' }) : icon(ic),
       el('span', { class: 't-msg', text: msg })
     ]);
     if (opts.action && opts.onAction) {
@@ -210,7 +210,24 @@
       setTimeout(() => node.remove(), 200);
     }
     node.addEventListener('click', (e) => { if (!e.target.closest('.t-act')) close(); });
-    timer = setTimeout(close, opts.duration || (kind === 'err' ? 6500 : 3200));
+    if (!opts.sticky) timer = setTimeout(close, opts.duration || (kind === 'err' ? 6500 : 3200));
+
+    // Returned so long jobs can rewrite their own toast ("Uploading 2 of 5…").
+    close.close = close;
+    close.update = (text, nextKind) => {
+      if (!node.isConnected) return;
+      node.querySelector('.t-msg').textContent = text;
+      if (nextKind) {
+        node.className = 'toast ' + nextKind;
+        const ic = nextKind === 'err' ? 'alert' : nextKind === 'ok' ? 'check' : 'info';
+        node.replaceChild(icon(ic), node.firstChild);
+      }
+    };
+    close.done = (text, nextKind, ms) => {
+      close.update(text, nextKind || 'ok');
+      clearTimeout(timer);
+      timer = setTimeout(close, ms || 2200);
+    };
     return close;
   }
 

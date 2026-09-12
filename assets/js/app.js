@@ -46,6 +46,7 @@
     kindFilter: 'all',
     filter: '',
     assetUrls: new Map(),
+    busyPaths: new Set(),      // rows waiting on a commit
     ready: false,
     truncated: false
   };
@@ -69,8 +70,36 @@
   /* =======================================================================
      Boot
      ======================================================================= */
+  /**
+   * Any request in flight lights the bar. Delayed slightly so quick calls
+   * don't make it flicker.
+   */
+  let progressTimer = null;
+  function wireProgress() {
+    GH.onActivity = (inFlight) => {
+      const bar = $('#progress');
+      if (!bar) return;
+      if (inFlight > 0) {
+        if (bar.hidden && !progressTimer) {
+          progressTimer = setTimeout(() => { bar.hidden = false; progressTimer = null; }, 160);
+        }
+      } else {
+        clearTimeout(progressTimer);
+        progressTimer = null;
+        bar.hidden = true;
+      }
+    };
+  }
+
+  /** Show a spinner on the row(s) an operation is about to change. */
+  function setRowsBusy(paths, on) {
+    [].concat(paths).forEach((p) => on ? state.busyPaths.add(p) : state.busyPaths.delete(p));
+    renderTree();
+  }
+
   function boot() {
     applyAccent(ui.accent);
+    wireProgress();
     localizeKeyHints();
     wireSetup();
     wireChrome();
@@ -192,6 +221,7 @@
     document.documentElement.style.setProperty('--sidebar-w', ui.sidebar + 'px');
     setMode(ui.mode || 'preview', true);
 
+    renderTree();                // paints the skeleton while the first load runs
     await refresh({ silent: true });
     state.ready = true;
 
@@ -228,6 +258,8 @@
      ======================================================================= */
   async function refresh(opts) {
     opts = opts || {};
+    const btn = $('#btn-refresh');
+    if (btn) btn.classList.add('spinning');
     const done = busy('Loading vault…');
     try {
       const { entries, truncated } = await GH.getTree();
@@ -238,9 +270,11 @@
       renderTree();
       renderStats();
       done();
+      if (btn) btn.classList.remove('spinning');
       if (truncated) toast('This repo is very large — the file list was truncated by GitHub.', 'err');
       if (!opts.silent) toast('Vault refreshed', 'ok');
     } catch (err) {
+      if (btn) btn.classList.remove('spinning');
       failed(err);
       if (err.status === 401) {
         GH.clearToken();
@@ -318,6 +352,12 @@
     const host = $('#tree');
     host.innerHTML = '';
 
+    if (!state.ready && !state.entries.length) {
+      host.appendChild(el('div', { class: 'skeleton' },
+        [1,2,3,4,5].map(() => el('span'))));
+      return;
+    }
+
     if (state.filter.trim()) return renderFilteredTree(host);
 
     const root = buildTree();
@@ -357,13 +397,15 @@
   }
 
   function folderRow(node, isOpen) {
+    const busy = state.busyPaths.has(node.path);
     const row = el('div', {
-      class: 'node' + (isOpen ? ' open' : '') + (state.selectedDir === node.path ? ' active' : ''),
+      class: 'node' + (isOpen ? ' open' : '') + (busy ? ' busy' : '') +
+             (state.selectedDir === node.path ? ' active' : ''),
       draggable: 'true',
       title: rel(node.path)
     }, [
       icon('chev-r', 'twist'),
-      icon(isOpen ? 'folder' : 'folder'),
+      busy ? el('span', { class: 'node-spin' }) : icon('folder'),
       el('span', { class: 'label', text: node.name }),
       el('span', {
         class: 'node-menu', onclick: (e) => { e.stopPropagation(); folderMenu(e.currentTarget, node); }
@@ -387,12 +429,13 @@
     const active = state.current && state.current.path === node.path;
     const dirty = state.doc && state.doc.path === node.path && state.doc.dirty;
 
+    const busy = state.busyPaths.has(node.path);
     const row = el('div', {
-      class: 'node' + (active ? ' active' : ''),
+      class: 'node' + (active ? ' active' : '') + (busy ? ' busy' : ''),
       draggable: 'true',
       title: rel(node.path)
     }, [
-      icon(kindIcon),
+      busy ? el('span', { class: 'node-spin' }) : icon(kindIcon),
       el('span', { class: 'label', text: isNote ? U.stem(node.name) : node.name }),
       dirty ? el('span', { class: 'dirty-dot' }) : null,
       el('span', {
@@ -721,6 +764,19 @@
     }
   }
 
+  /** 'saving' locks the button and spins; 'idle' hands control back to markDirty. */
+  function setSaveButton(mode) {
+    const btn = $('#btn-save');
+    btn.innerHTML = '';
+    if (mode === 'saving') {
+      btn.disabled = true;
+      btn.append(el('span', { class: 'spin' }), el('span', { text: 'Saving…' }));
+      return;
+    }
+    btn.append(icon('save'), el('span', { text: 'Save' }));
+    markDirty();
+  }
+
   const saveDraft = U.debounce(() => {
     if (!state.doc || !state.doc.dirty) return;
     writeJSON(DRAFT_PREFIX + state.doc.path, { text: state.doc.text, ts: Date.now() });
@@ -751,6 +807,7 @@
     }
 
     const done = busy('Saving…');
+    setSaveButton('saving');
     try {
       const res = await GH.putFile(
         doc.path, U.b64encode(doc.text), doc.isNew ? null : doc.sha,
@@ -775,9 +832,11 @@
       renderCrumbs(entry);
       markDirty();
       done();
+      setSaveButton('idle');
       if (!opts.quiet) toast('Saved to GitHub', 'ok');
       return true;
     } catch (err) {
+      setSaveButton('idle');
       if (err.status === 409 || err.status === 422) return handleConflict(doc, err);
       failed(err);
       return false;
@@ -901,6 +960,7 @@
 
     // Git has no empty directories, so seed one with a .gitkeep.
     const done = busy('Creating folder…');
+    const note = toast('Creating folder…', 'info', { sticky: true, spinner: true });
     try {
       await GH.putFile(U.joinPath(path, '.gitkeep'), U.b64encode(''), null, 'Create folder ' + rel(path));
       state.entries.push({ path, rel: rel(path), name, dir, type: 'tree', sha: null, size: 0, kind: 'folder' });
@@ -909,8 +969,8 @@
       state.selectedDir = path;
       renderTree();
       done();
-      toast('Folder created', 'ok');
-    } catch (err) { failed(err); }
+      note.done('Folder created');
+    } catch (err) { note.close(); failed(err); }
   }
 
   async function renameEntry(entry) {
@@ -970,6 +1030,9 @@
     });
 
     const done = busy('Moving…');
+    const verb = U.dirname(entry.path) === U.dirname(targetPath) ? 'Renaming' : 'Moving';
+    const note = toast(verb + ' ' + rel(entry.path) + '…', 'info', { sticky: true, spinner: true });
+    setRowsBusy(moving.map((m) => m.path).concat(entry.path), true);
     try {
       await GH.commitBatch(changes, message);
       const wasOpen = state.current && (state.current.path === entry.path ||
@@ -981,26 +1044,40 @@
       moving.forEach((m) => clearDraft(m.path));
       if (state.doc && wasOpen && !isFolder) { state.doc.path = targetPath; }
       done();
+      state.busyPaths.clear();
       await refresh({ silent: true });
       if (newCurrent && state.byPath.has(newCurrent)) {
         state.current = null;
         openPath(newCurrent);
       }
-      toast('Renamed', 'ok');
-    } catch (err) { failed(err); }
+      note.done(verb === 'Renaming' ? 'Renamed' : 'Moved');
+    } catch (err) {
+      note.close();
+      state.busyPaths.clear();
+      renderTree();
+      failed(err);
+    }
   }
 
   async function duplicateNote(entry) {
     const done = busy('Duplicating…');
+    const note = toast('Duplicating ' + rel(entry.path) + '…', 'info', { sticky: true, spinner: true });
+    setRowsBusy(entry.path, true);
     try {
       const text = await GH.getBlobText(entry.sha);
       const target = uniquePath(U.joinPath(entry.dir, U.stem(entry.name) + ' copy.md'));
       await GH.putFile(target, U.b64encode(text), null, 'Duplicate ' + rel(entry.path));
       done();
+      state.busyPaths.clear();
       await refresh({ silent: true });
       openPath(target);
-      toast('Duplicated', 'ok');
-    } catch (err) { failed(err); }
+      note.done('Duplicated');
+    } catch (err) {
+      note.close();
+      state.busyPaths.clear();
+      renderTree();
+      failed(err);
+    }
   }
 
   async function deleteEntry(entry) {
@@ -1029,6 +1106,10 @@
     if (!ok) return;
 
     const done = busy('Deleting…');
+    const note = toast('Deleting ' + rel(entry.path) +
+      (victims.length > 1 ? ' (' + victims.length + ' items)…' : '…'),
+      'info', { sticky: true, spinner: true });
+    setRowsBusy(victims.map((v) => v.path).concat(entry.path), true);
     try {
       if (victims.length === 1 && !isFolder) {
         await GH.deleteFile(victims[0].path, victims[0].sha, 'Delete ' + rel(victims[0].path));
@@ -1046,25 +1127,30 @@
         state.current.path.startsWith(entry.path + '/'));
       if (hitCurrent) { state.doc = null; showEmpty(); }
       done();
+      state.busyPaths.clear();
       await refresh({ silent: true });
-      toast('Deleted', 'ok');
+      note.done('Deleted');
     } catch (err) {
+      state.busyPaths.clear();
+      renderTree();
       if (err.status === 422 && !isFolder) {
         // Stale sha — re-read and retry once.
         try {
           const fresh = await GH.getFile(entry.path);
           await GH.deleteFile(entry.path, fresh.sha, 'Delete ' + rel(entry.path));
           await refresh({ silent: true });
-          toast('Deleted', 'ok');
+          note.done('Deleted');
           return;
-        } catch (e2) { failed(e2); return; }
+        } catch (e2) { note.close(); failed(e2); return; }
       }
+      note.close();
       failed(err);
     }
   }
 
   async function downloadEntry(entry) {
     const done = busy('Preparing…');
+    const note = toast('Preparing ' + entry.name + '…', 'info', { sticky: true, spinner: true });
     try {
       const blob = await GH.getBlobBinary(entry.sha);
       const url = URL.createObjectURL(blob);
@@ -1074,7 +1160,8 @@
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       done();
-    } catch (err) { failed(err); }
+      note.done('Downloaded ' + entry.name);
+    } catch (err) { note.close(); failed(err); }
   }
 
   /* =======================================================================
@@ -1094,8 +1181,11 @@
     const queue = files.filter((f) => f.size <= MAX_UPLOAD);
     const heavy = queue.reduce((s, f) => s + f.size, 0) > WARN_UPLOAD;
 
+    const total = queue.reduce((s, f) => s + f.size, 0);
     const done = busy('Uploading ' + queue.length + (queue.length === 1 ? ' file…' : ' files…'));
-    if (heavy) toast('Uploading ' + U.formatBytes(queue.reduce((s, f) => s + f.size, 0)) + ' — this can take a moment.', 'info');
+    const label = queue.length === 1 ? queue[0].name : queue.length + ' files';
+    const note = toast('Reading ' + label + '…' + (heavy ? ' (' + U.formatBytes(total) + ')' : ''),
+      'info', { sticky: true, spinner: true });
 
     try {
       const changes = [];
@@ -1107,29 +1197,29 @@
         taken.add(path);
         changes.push({ path, contentB64: await U.readFileAsB64(f) });
         created.push(path);
+        if (queue.length > 1) note.update('Reading ' + created.length + ' of ' + queue.length + '…');
       }
       const msg = queue.length === 1
         ? 'Upload ' + rel(created[0])
         : 'Upload ' + queue.length + ' files to ' + (rel(dir) || GH.cfg.root);
 
+      note.update('Uploading ' + label + '…');
       if (changes.length === 1) {
         await GH.putFile(changes[0].path, changes[0].contentB64, null, msg);
       } else {
-        await GH.commitBatch(changes, msg);
+        await GH.commitBatch(changes, msg, (n, of) =>
+          note.update('Uploading ' + n + ' of ' + of + '…'));
       }
 
+      note.update('Committing…');
       done();
       await refresh({ silent: true });
       if (dir !== vaultRoot()) state.open.add(dir);
       renderTree();
-      if (!opts.quiet) {
-        toast(queue.length + (queue.length === 1 ? ' file uploaded' : ' files uploaded'), 'ok', {
-          action: created.length === 1 ? 'Open' : null,
-          onAction: () => openPath(created[0])
-        });
-      }
+      if (opts.quiet) note.close();
+      else note.done(queue.length + (queue.length === 1 ? ' file uploaded' : ' files uploaded'));
       return created;
-    } catch (err) { failed(err); return []; }
+    } catch (err) { note.close(); failed(err); return []; }
   }
 
   /* =======================================================================
@@ -1751,13 +1841,15 @@
       return;
     }
     const done = busy('Indexing ' + notes.length + ' notes…');
+    const note = toast('Indexing 0 of ' + notes.length + '…', 'info', { sticky: true, spinner: true });
     let n = 0;
-    for (const note of notes) {
-      try { contentCache.set(note.path, await GH.getBlobText(note.sha)); n++; }
+    for (const item of notes) {
+      try { contentCache.set(item.path, await GH.getBlobText(item.sha)); n++; }
       catch (_) { /* skip unreadable blobs */ }
+      note.update('Indexing ' + n + ' of ' + notes.length + '…');
     }
     done();
-    if (announce) toast('Indexed ' + n + (n === 1 ? ' note' : ' notes') + ' — search is live now', 'ok');
+    note.done('Indexed ' + n + (n === 1 ? ' note' : ' notes') + ' — search is live now');
     if (thenQuery !== undefined) renderPalette(thenQuery);
   }
 
