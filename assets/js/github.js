@@ -10,7 +10,8 @@
   'use strict';
 
   const API = 'https://api.github.com';
-  const CFG_KEY = 'mpf.config';
+  const CFG_KEY = 'keep.config';
+  const LEGACY_CFG_KEY = 'mpf.config';   // the app used to be "My Personal Folder"
 
   const GH = {
     cfg: { owner: '', repo: '', branch: 'main', root: 'vault', token: '' },
@@ -23,7 +24,20 @@
     /* ------------------------------------------------------------ config */
     loadConfig() {
       let raw = null;
-      try { raw = localStorage.getItem(CFG_KEY) || sessionStorage.getItem(CFG_KEY); } catch (_) {}
+      try {
+        raw = localStorage.getItem(CFG_KEY) || sessionStorage.getItem(CFG_KEY);
+        if (!raw) {
+          // Carry a pre-rename session over rather than asking for the token again.
+          const legacy = localStorage.getItem(LEGACY_CFG_KEY) || sessionStorage.getItem(LEGACY_CFG_KEY);
+          if (legacy) {
+            const inLocal = localStorage.getItem(LEGACY_CFG_KEY) !== null;
+            (inLocal ? localStorage : sessionStorage).setItem(CFG_KEY, legacy);
+            localStorage.removeItem(LEGACY_CFG_KEY);
+            sessionStorage.removeItem(LEGACY_CFG_KEY);
+            raw = legacy;
+          }
+        }
+      } catch (_) {}
       if (!raw) return false;
       try {
         const saved = JSON.parse(raw);
@@ -56,7 +70,10 @@
     },
 
     clearConfig() {
-      try { localStorage.removeItem(CFG_KEY); sessionStorage.removeItem(CFG_KEY); } catch (_) {}
+      try {
+        localStorage.removeItem(CFG_KEY); sessionStorage.removeItem(CFG_KEY);
+        localStorage.removeItem(LEGACY_CFG_KEY); sessionStorage.removeItem(LEGACY_CFG_KEY);
+      } catch (_) {}
       this.cfg = { owner: '', repo: '', branch: 'main', root: 'vault', token: '' };
     },
 

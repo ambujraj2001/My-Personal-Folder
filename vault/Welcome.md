@@ -4,7 +4,7 @@ tags: [getting-started, reference]
 created: 2026-09-13
 ---
 
-# Welcome to your personal folder
+# Welcome to Keep
 
 This note lives at `vault/Welcome.md` in your own GitHub repo. Everything you do
 here — writing, pasting, uploading, renaming, deleting — becomes a real commit.

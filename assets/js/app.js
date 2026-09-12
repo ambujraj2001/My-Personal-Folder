@@ -1,20 +1,20 @@
 /* =========================================================================
-   app.js — My Personal Folder
+   app.js — Keep
    ========================================================================= */
 (function () {
   'use strict';
 
   const { $, $$, el, icon, toast, modal, confirmModal, contextMenu } = U;
 
-  const UI_KEY = 'mpf.ui';
-  const DRAFT_PREFIX = 'mpf.draft.';
+  const UI_KEY = 'keep.ui';
+  const DRAFT_PREFIX = 'keep.draft.';
   const MAX_UPLOAD = 50 * 1024 * 1024;   // GitHub blob API ceiling we're willing to try
   const WARN_UPLOAD = 8 * 1024 * 1024;
   const ASSET_DIR = 'assets';            // where pasted/dropped images land, inside the vault
 
   // Used when nothing is saved and the URL tells us nothing (e.g. localhost).
   // Edit these if you fork this app for a different vault.
-  const DEFAULT_TARGET = { owner: 'ambujraj2001', repo: 'My-Personal-Folder', branch: 'main', root: 'vault' };
+  const DEFAULT_TARGET = { owner: 'ambujraj2001', repo: 'keep', branch: 'main', root: 'vault' };
 
   /** Work out the repo from a github.io URL, so the app only has to ask for a token. */
   function detectTarget() {
@@ -22,6 +22,21 @@
     if (!m) return null;                                  // custom domain or local
     const seg = location.pathname.split('/').filter(Boolean)[0];
     return { owner: m[1], repo: seg || (m[1] + '.github.io') };
+  }
+
+  /**
+   * If the app is served from a github.io URL and the saved repo isn't the one
+   * the user deliberately chose, trust the URL. That way renaming the repo
+   * re-points every signed-in device instead of stranding it on a dead name.
+   */
+  function reconcileTarget() {
+    const det = detectTarget();
+    if (!det || GH.cfg.pinned) return;
+    if (!GH.cfg.owner || !GH.cfg.repo) return;
+    if (GH.cfg.owner === det.owner && GH.cfg.repo === det.repo) return;
+    GH.cfg.owner = det.owner;
+    GH.cfg.repo = det.repo;
+    GH.saveConfig(GH.cfg, true);
   }
 
   /** Saved config wins, then the URL, then the baked-in default. */
@@ -108,7 +123,7 @@
     wireDnD();
     wireShortcuts();
 
-    if (GH.loadConfig()) connect();
+    if (GH.loadConfig()) { reconcileTarget(); connect(); }
     else showSetup();
   }
 
@@ -169,6 +184,8 @@
         token: $('#cfg-token').value.trim()
       };
       const remember = $('#cfg-remember').checked;
+      const det = detectTarget();
+      cfg.pinned = !!(det && (det.owner !== cfg.owner || det.repo !== cfg.repo));
 
       const prev = Object.assign({}, GH.cfg);
       Object.assign(GH.cfg, cfg);
@@ -214,9 +231,10 @@
   async function connect() {
     $('#setup').hidden = true;
     $('#app').hidden = false;
-    $('#brand-repo').textContent = GH.cfg.repo;
+    $('#brand-repo').textContent = 'Keep';
+    $('#brand-repo').title = GH.repoPath;
     $('#btn-gh').href = GH.repoUrl;
-    document.title = GH.cfg.repo + ' — My Personal Folder';
+    document.title = 'Keep';
     $('#sidebar').style.setProperty('--sidebar-w', ui.sidebar + 'px');
     document.documentElement.style.setProperty('--sidebar-w', ui.sidebar + 'px');
     setMode(ui.mode || 'preview', true);

@@ -1,6 +1,7 @@
-# My Personal Folder
+# Keep
 
-A personal notes-and-files app that uses **this repository as its database**.
+The things you keep — a personal notes-and-files app that uses **this repository
+as its database**.
 Plain HTML, CSS and JavaScript — no build step, no server, no third-party service.
 Every note you write and every file you upload becomes a commit in this repo.
 
@@ -48,7 +49,7 @@ Either:
   local server is the dependable option — some browsers restrict storage on
   `file://`.
 - **GitHub Pages** — Settings → Pages → deploy from `main` / root, then open
-  `https://<you>.github.io/My-Personal-Folder/`. Not enabled by default.
+  `https://<you>.github.io/keep/`. Not enabled by default.
   Read [Privacy](#privacy) first: Pages publishes `vault/` as static files, so a
   public Pages site makes every note public. Publishing a *private* repo to Pages
   (which keeps the site behind a GitHub login) requires a paid plan.
